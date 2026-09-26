@@ -259,11 +259,12 @@ document.addEventListener('submit',async e=>{if(!['preset-form','login-form'].in
 }catch(error){toast(error.message,true);}finally{button.disabled=false;}});
 window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);});
 let dragDepth=0;
+const isBackupDrop=()=>location.hash.replace(/\/+$/,'')==='#/backup'||Boolean(document.querySelector('#import-backup'));
 const isFileDrag=e=>Array.from(e.dataTransfer?.types||[]).includes('Files');
-document.addEventListener('dragenter',e=>{if(isFileDrag(e)){e.preventDefault();dragDepth++;document.body.dataset.dropKind=route==='backup'?'backup':'image';document.body.classList.add('dragging-image');}});
-document.addEventListener('dragover',e=>{if(isFileDrag(e)){e.preventDefault();e.dataTransfer.dropEffect='copy';}});
+document.addEventListener('dragenter',e=>{if(isFileDrag(e)){e.preventDefault();dragDepth++;document.body.dataset.dropKind=isBackupDrop()?'backup':'image';document.body.classList.add('dragging-image');}});
+document.addEventListener('dragover',e=>{if(isFileDrag(e)){e.preventDefault();document.body.dataset.dropKind=isBackupDrop()?'backup':'image';document.body.classList.add('dragging-image');e.dataTransfer.dropEffect='copy';}});
 document.addEventListener('dragleave',e=>{if(isFileDrag(e)&&--dragDepth<=0){dragDepth=0;document.body.classList.remove('dragging-image');}});
-document.addEventListener('drop',async e=>{if(!isFileDrag(e))return;e.preventDefault();dragDepth=0;document.body.classList.remove('dragging-image');try{if(route==='backup'){const backups=[...e.dataTransfer.files];if(backups.length!==1)throw Error('백업 JSON 파일을 한 개씩 끌어와 주세요.');await importBackupFile(backups[0]);return;}const files=[...e.dataTransfer.files].filter(f=>/^image\//.test(f.type)||/\.(png|jpe?g|webp)$/i.test(f.name));if(!files.length)throw Error('PNG, JPEG, WebP 이미지 파일을 끌어와 주세요.');imageIntake(files);}catch(error){toast(error.message,true);}});
+document.addEventListener('drop',async e=>{if(!isFileDrag(e))return;e.preventDefault();dragDepth=0;document.body.classList.remove('dragging-image');try{if(isBackupDrop()){const backups=[...e.dataTransfer.files];if(backups.length!==1)throw Error('백업 JSON 파일을 한 개씩 끌어와 주세요.');await importBackupFile(backups[0]);return;}const files=[...e.dataTransfer.files].filter(f=>/^image\//.test(f.type)||/\.(png|jpe?g|webp)$/i.test(f.name));if(!files.length)throw Error('PNG, JPEG, WebP 이미지 파일을 끌어와 주세요.');imageIntake(files);}catch(error){toast(error.message,true);}});
 window.addEventListener('beforeunload',e=>{if(active()){e.preventDefault();e.returnValue='';}});
 modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)modal.close();}});
 setInterval(()=>{if(queue.phase==='waiting')updateQueue();},500);
