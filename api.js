@@ -3,10 +3,15 @@ import {db} from './db.js';
 export const base64 = bytes => {let s='';for(let i=0;i<bytes.length;i+=32768)s+=String.fromCharCode(...bytes.subarray(i,i+32768));return btoa(s);};
 export function from64(s) {const raw=atob(s.replace(/^data:[^,]+,/,'')),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
 export async function request(profile,path,body,signal,method='POST') {
+  let url;try{url=new URL(profile.base.trim().replace(/\/+$/,'')+path);}catch{throw Error('API 주소 형식이 올바르지 않습니다. https://image.novelai.net 형태로 입력해 주세요.');}
+  if(!['https:','http:'].includes(url.protocol))throw Error('API 주소는 https:// 또는 http://로 시작해야 합니다.');
+  const token=profile.token?.replace(/^Bearer\s+/i,'').trim()||'';
+  if(token&&/[^\x21-\x7e]/.test(token))throw Error('토큰에 공백 또는 잘못된 문자가 있습니다. Persistent API Token 전체를 다시 복사해 주세요.');
+  if(globalThis.location?.protocol==='https:'&&url.protocol==='http:')throw Error('HTTPS 사이트에서는 HTTP API에 연결할 수 없습니다. API 주소를 HTTPS로 설정해 주세요.');
   const timeout=AbortSignal.timeout(300000),combined=signal?AbortSignal.any([signal,timeout]):timeout;
   let response;
-  try {response=await fetch(profile.base.trim().replace(/\/+$/,'')+path,{method,headers:{...(body?{'Content-Type':'application/json'}:{}),...(profile.token?{'Authorization':`Bearer ${profile.token.replace(/^Bearer\s+/i,'').trim()}`}:{})},body:body?JSON.stringify(body):undefined,signal:combined,credentials:'omit',redirect:'error'});}
-  catch(error) {if(signal?.aborted) throw signal.reason; if(timeout.aborted)throw Error('응답 시간이 5분을 초과했습니다. 서버에서 이미 생성했을 수 있으니 확인 후 다시 시도해 주세요.');throw Error('API에 연결하지 못했습니다. 주소, 네트워크, CORS 허용 여부를 확인해 주세요.');}
+  try {response=await fetch(url.href,{method,headers:{...(body?{'Content-Type':'application/json'}:{}),...(token?{'Authorization':`Bearer ${token}`}:{})},body:body?JSON.stringify(body):undefined,signal:combined,credentials:'omit',redirect:'error'});}
+  catch(error) {if(signal?.aborted) throw signal.reason; if(timeout.aborted)throw Error('응답 시간이 5분을 초과했습니다. 서버에서 이미 생성했을 수 있으니 확인 후 다시 시도해 주세요.');if(globalThis.navigator?.onLine===false)throw Error('인터넷 연결이 끊겨 있습니다. 네트워크 연결 후 다시 시도해 주세요.');const target=url.hostname==='sharednai5.pro'?'SharedNAI':url.origin;throw Error(`API 응답을 받지 못했습니다. 요청 대상: ${target}${url.pathname}\n브라우저에서는 네트워크 오류와 CORS 차단을 구분할 수 없습니다. 개발자 도구(F12)의 Console·Network 오류를 확인해 주세요. 토큰 유효성은 아직 확인되지 않았습니다.`);}
   if(!response.ok) {
     let detail=await response.text();
     try {const j=JSON.parse(detail);detail=j.detail||j.message||j.error||detail;if(typeof detail!=='string')detail=JSON.stringify(detail);} catch{}
@@ -21,8 +26,6 @@ export async function connect(s) {
   if(s.api.provider==='shared'&&!p.loginSession)throw Error('SharedNAI 계정으로 로그인해 주세요.');
   if(!p.token.trim()) throw Error('토큰을 입력해 주세요.');
   if(s.api.provider==='novelai') {
-    const u=new URL(p.base);
-    if(u.hostname==='image.novelai.net') p={...p,base:'https://api.novelai.net'};
     await request(p,'/user/subscription',null,null,'GET');
   } else await request(p,'/account',null,null,'GET');
 }
