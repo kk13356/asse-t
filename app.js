@@ -1,6 +1,6 @@
 import {MODELS,GROUPS,defaults,uid,modelOf,prompts,validate,parseBackup,safeName,migrateSettings,activeCharacters,assignmentFor,batchExpressions} from './core.js';
 import {db,saveSettings} from './db.js';
-import {connect,login,readImage,prepare,generate} from './api.js';
+import {connect,login,readImage,prepare,generate} from './api.js?v=1.2.3';
 import {runJobs} from './queue.js';
 import {readMetadata,applyMetadata} from './metadata.js';
 
@@ -221,7 +221,7 @@ const actions={
     modal.close();confirmation('프리셋 삭제','선택한 프리셋을 삭제할까요?',async()=>{state[key]=state[key].filter(x=>x.id!==id);if(kind==='expression'){state.selectedExpressions=state.selectedExpressions.filter(x=>x!==id);for(const a of Object.values(state.assignments))if(a.expressionId===id){a.expressionId='';a.mode='none';}}else {const selection=kind==='style'?'selectedStyle':'selectedCharacter';if(state[selection]===id)state[selection]=state[key][0].id;if(kind==='character'){state.selectedCharacters=state.selectedCharacters.filter(x=>x!==id);delete state.assignments[id];}}await flush();render();});
   },
   'provider':async el=>{state.api.provider=el.dataset.provider;apiChecked=false;await flush();render();},
-  'check-api':async el=>{el.disabled=true;el.textContent='연결 확인 중…';try {await connect(state);await flush();apiChecked=true;const status=$('#connection-status');if(status)status.innerHTML='<p class="success-note">연결 성공 · 이미지를 생성할 수 있습니다.</p>';toast('API 연결을 확인했습니다.');} finally {el.disabled=false;el.textContent='연결 확인';}},
+  'check-api':async el=>{el.disabled=true;el.textContent='연결 확인 중…';try {await connect(state);await flush();apiChecked=true;const status=$('#connection-status');if(status)status.innerHTML='<p class="success-note">API 인증 확인 완료 · 생성 가능 여부는 모델·잔액·계정 권한에 따라 달라집니다.</p>';toast('API 연결을 확인했습니다.');} finally {el.disabled=false;el.textContent='연결 확인';}},
   'remove-image':el=>{const k=el.dataset.kind;if(k==='img2img')state[k].image=null;else state[k].items=state[k].items.filter(x=>x.id!==el.dataset.id);persist();render();},
   'preview-prompt':()=>{const e=batchExpressions(state)[0];if(!e)throw Error('표정·포즈를 먼저 선택해 주세요.');const p=prompts(state,e);openModal(`${modalHeading('프롬프트 조합 미리보기')}<p class="help">${esc(e.name)} 기준 · V4 이상에서는 캐릭터별로 프롬프트를 분리해 전달합니다.</p><h3>기본 Prompt</h3><pre>${esc(p.base||'(비어 있음)')}</pre>${p.cast.map(c=>`<h3>${esc(c.name)}</h3><pre>${esc(c.prompt)}</pre><small>Undesired Content</small><pre>${esc(c.uc||'(비어 있음)')}</pre>`).join('')}<h3>기본 Undesired Content</h3><pre>${esc(p.baseUC||'(비어 있음)')}</pre>`);},
   'backup':async()=>{await flush();download(new Blob([JSON.stringify({format:'asset-studio-backup',version:1,exportedAt:new Date().toISOString(),settings:state},null,2)],{type:'application/json'}),`asset-studio-backup-${new Date().toISOString().slice(0,10)}.json`);toast('설정 백업 다운로드를 시작했습니다.');},
